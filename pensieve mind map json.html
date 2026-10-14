@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pensieve - Cloud-Synced Ethereal Thought Canvas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        pensieve: {
+                            bg: '#040814',
+                            deep: '#0a1128',
+                            surface: '#0f1b3d',
+                            accent: '#64ffda',
+                            gold: '#ffd166',
+                            purple: '#a855f7',
+                            cyan: '#00f2fe',
+                            rose: '#f43f5e'
+                        }
+                    },
+                    fontFamily: {
+                        cinzel: ['Cinzel', 'serif'],
+                        sans: ['Plus Jakarta Sans', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            user-select: none;
+        }
+
+        /* Ethereal background grid & glow */
+        .pensieve-grid {
+            background-color: #040814;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(20, 40, 80, 0.4) 0%, rgba(4, 8, 20, 0.9) 100%),
+                radial-gradient(rgba(100, 255, 218, 0.08) 1px, transparent 0);
+            background-size: 100% 100%, 32px 32px;
+            transition: background-color 0.4s ease;
+        }
+
+        html:not(.dark) .pensieve-grid {
+            background-color: #f1f5f9;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(13, 148, 136, 0.08) 0%, rgba(241, 245, 249, 0.95) 100%),
+                radial-gradient(rgba(13, 148, 136, 0.12) 1px, transparent 0);
+        }
+
+        /* Glassmorphism UI */
+        .glass-panel {
+            background: rgba(10, 17, 40, 0.85);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(100, 255, 218, 0.3);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+            color: #f8fafc;
+            transition: background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
+        }
+
+        html:not(.dark) .glass-panel {
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(13, 148, 136, 0.35);
+            box-shadow: 0 10px 30px 0 rgba(15, 23, 42, 0.12);
+            color: #0f172a;
+        }
+
+        .glass-button {
+            background: rgba(15, 27, 61, 0.85);
+            border: 1px solid rgba(100, 255, 218, 0.35);
+            color: #64ffda;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        html:not(.dark) .glass-button {
+            background: rgba(241, 245, 249, 0.95);
+            border: 1px solid rgba(13, 148, 136, 0.4);
+            color: #0f766e;
+        }
+
+        .glass-button:hover {
+            background: rgba(100, 255, 218, 0.25);
+            border-color: rgba(100, 255, 218, 0.9);
+            box-shadow: 0 0 20px rgba(100, 255, 218, 0.5);
+            transform: translateY(-1px);
+        }
+
+        html:not(.dark) .glass-button:hover {
+            background: rgba(13, 148, 136, 0.2);
+            border-color: rgba(13, 148, 136, 0.8);
+            box-shadow: 0 0 15px rgba(13, 148, 136, 0.3);
+            color: #0f766e;
+        }
+
+        /* Canvas Overlay */
+        #bgCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        #mindmapCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        /* Enhanced Thought Bubble Element Styles */
+        .thought-node {
+            position: absolute;
+            z-index: 10;
+            cursor: grab;
+            transition: filter 0.3s ease;
+            transform-origin: center center;
+        }
+
+        .thought-node:active {
+            cursor: grabbing;
+        }
+
+        .thought-node-inner {
+            background: linear-gradient(135deg, rgba(15, 27, 61, 0.95) 0%, rgba(10, 17, 40, 0.98) 100%);
+            backdrop-filter: blur(16px);
+            border: 2px solid rgba(100, 255, 218, 0.45);
+            box-shadow: 0 10px 35px -5px rgba(0, 242, 254, 0.25), inset 0 0 20px rgba(255, 255, 255, 0.06);
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            color: #f8fafc;
+            border-radius: 20px;
+        }
+
+        html:not(.dark) .thought-node-inner {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.99) 100%);
+            border: 2px solid rgba(13, 148, 136, 0.45);
+            box-shadow: 0 12px 35px -5px rgba(15, 23, 42, 0.15), inset 0 0 15px rgba(0, 0, 0, 0.02);
+            color: #0f172a;
+        }
+
+        /* Specific Aura Border glows */
+        .aura-cyan .thought-node-inner { border-color: rgba(0, 242, 254, 0.6); box-shadow: 0 12px 40px -5px rgba(0, 242, 254, 0.35); }
+        .aura-gold .thought-node-inner { border-color: rgba(255, 209, 102, 0.6); box-shadow: 0 12px 40px -5px rgba(255, 209, 102, 0.35); }
+        .aura-purple .thought-node-inner { border-color: rgba(168, 85, 247, 0.6); box-shadow: 0 12px 40px -5px rgba(168, 85, 247, 0.35); }
+        .aura-rose .thought-node-inner { border-color: rgba(244, 63, 94, 0.6); box-shadow: 0 12px 40px -5px rgba(244, 63, 94, 0.35); }
+
+        /* Bubble Shapes */
+        .shape-rounded-card { border-radius: 22px; }
+        .shape-pill { border-radius: 9999px !important; padding: 0.5rem 1.25rem; }
+        .shape-circle { 
+            border-radius: 50% !important; 
+            width: 190px !important; 
+            height: 190px !important; 
+            display: flex !important; 
+            flex-direction: column !important; 
+            align-items: center !important; 
+            justify-content: center !important; 
+            text-align: center !important; 
+            overflow: visible !important; 
+            padding: 20px;
+            position: relative !important;
+        }
+
+        .thought-node:hover .thought-node-inner {
+            border-color: rgba(100, 255, 218, 1);
+            box-shadow: 0 20px 50px -5px rgba(100, 255, 218, 0.5), inset 0 0 25px rgba(100, 255, 218, 0.2);
+            transform: translateY(-3px) scale(1.02);
+        }
+
+        html:not(.dark) .thought-node:hover .thought-node-inner {
+            border-color: rgba(13, 148, 136, 1);
+            box-shadow: 0 20px 50px -5px rgba(13, 148, 136, 0.35);
+            transform: translateY(-3px) scale(1.02);
+        }
+
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.6); }
+            70% { box-shadow: 0 0 0 15px rgba(244, 63, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+        }
+
+        .recording-active {
+            animation: pulseGlow 1.5s infinite;
+            background: rgba(244, 63, 94, 0.25) !important;
+            border-color: #f43f5e !important;
+            color: #f43f5e !important;
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(4, 8, 20, 0.5); }
+        ::-webkit-scrollbar-thumb { background: rgba(100, 255, 218, 0.3); border-radius: 4px; }
+    </style>
+</head>
+<body class="pensieve-grid relative w-screen h-screen overflow-hidden text-slate-100 dark:text-slate-100">
+
+    <canvas id="bgCanvas"></canvas>
+    <canvas id="mindmapCanvas"></canvas>
+
+    <!-- UI Overlay Layer -->
+    <div class="relative z-20 w-full h-full pointer-events-none flex flex-col justify-between p-4 md:p-6">
+
+        <!-- Top Navigation & Control Header -->
+        <header class="flex items-center justify-between pointer-events-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-2xl bg-pensieve-surface border border-pensieve-accent/40 flex items-center justify-center text-pensieve-accent shadow-[0_0_20px_rgba(100,255,218,0.25)]">
+                    <i class="fa-solid fa-flask-vial text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-cinzel text-xl md:text-2xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-pensieve-accent via-pensieve-cyan to-pensieve-gold">
+                        PENSIEVE
+                    </h1>
+                    <p class="text-xs text-slate-400 -mt-0.5 font-sans font-semibold tracking-wide">Cloud-Synced Thought Mind Map</p>
+                </div>
+            </div>
+
+            <!-- World Sectors / Categories Selector Container -->
+            <div id="worldSectorsContainer" class="hidden xl:flex items-center gap-1.5 glass-panel p-1.5 rounded-full shadow-lg">
+                <button onclick="filterWorld('all')" class="world-filter-btn px-3.5 py-1.5 rounded-full text-xs font-semibold text-pensieve-accent bg-pensieve-accent/15 border border-pensieve-accent/40 transition-all">
+                    <i class="fa-solid fa-globe mr-1"></i> All Worlds
+                </button>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="flex items-center gap-2">
+                <div class="relative hidden sm:block">
+                    <input type="text" id="searchInput" onkeyup="searchNodes()" placeholder="Search thoughts..." 
+                        class="w-36 md:w-52 px-3.5 py-2 pl-9 text-xs rounded-full bg-white/90 dark:bg-pensieve-surface/90 border border-pensieve-accent/35 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-pensieve-accent transition-all shadow-inner">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-xs text-slate-400"></i>
+                </div>
+                
+                <!-- Light / Dark Mode Toggle -->
+                <button onclick="toggleTheme()" title="Toggle Light/Dark Mode" class="glass-button w-10 h-10 rounded-full flex items-center justify-center shadow-md">
+                    <i id="themeIcon" class="fa-solid fa-sun text-sm"></i>
+                </button>
+
+                <button onclick="openSettingsModal()" title="Settings & Categories" class="glass-button w-10 h-10 rounded-full flex items-center justify-center shadow-md">
+                    <i class="fa-solid fa-gear text-sm"></i>
+                </button>
+
+                <button onclick="resetCamera()" title="Center Canvas" class="glass-button w-10 h-10 rounded-full flex items-center justify-center shadow-md">
+                    <i class="fa-solid fa-crosshairs text-sm"></i>
+                </button>
+                <button onclick="exportMindMap()" title="Export Map JSON" class="glass-button w-10 h-10 rounded-full flex items-center justify-center shadow-md">
+                    <i class="fa-solid fa-download text-sm"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Notification Toast -->
+        <div id="toastNotification" class="self-center glass-panel px-5 py-2.5 rounded-full text-xs text-pensieve-accent font-semibold flex items-center gap-2.5 opacity-0 transition-all duration-300 pointer-events-none transform -translate-y-2 shadow-2xl border border-pensieve-accent/50">
+            <i class="fa-solid fa-sparkles text-pensieve-gold animate-spin"></i> <span id="toastText">Synced with cloud Pensieve!</span>
+        </div>
+
+        <footer class="w-full max-w-3xl mx-auto pointer-events-auto">
+            <div class="glass-panel p-3 md:p-4 rounded-2xl md:rounded-3xl border border-pensieve-accent/40 shadow-[0_15px_50px_rgba(0,0,0,0.5)]">
+                
+                <div class="flex flex-col gap-2.5">
+                    <!-- Text and Speech Bar -->
+                    <div class="flex items-center gap-2.5">
+                        <!-- Voice Recording Button -->
+                        <button id="voiceBtn" onclick="toggleVoiceInput()" title="Speech Thought Recognition" 
+                            class="glass-button w-12 h-12 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 transition-all shadow-md">
+                            <i id="micIcon" class="fa-solid fa-microphone text-base"></i>
+                        </button>
+
+                        <!-- Input Text Area -->
+                        <div class="relative flex-1">
+                            <input type="text" id="thoughtTitleInput" placeholder="Dump a thought, job story, character arc, or spark..." 
+                                class="w-full px-4.5 py-3 text-sm rounded-xl md:rounded-2xl bg-white/90 dark:bg-pensieve-bg/90 border border-pensieve-accent/30 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-pensieve-accent focus:ring-2 focus:ring-pensieve-accent/20 transition-all shadow-inner"
+                                onkeypress="handleInputKeyPress(event)">
+                        </div>
+
+                        <!-- Add Thought Button -->
+                        <button onclick="submitNewThought()" class="glass-button px-5 py-3 rounded-xl md:rounded-2xl text-xs md:text-sm font-bold text-slate-900 dark:text-pensieve-bg bg-pensieve-accent hover:opacity-95 border-none flex items-center gap-2 shrink-0 shadow-[0_0_20px_rgba(100,255,218,0.5)] transition-transform hover:scale-105">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span class="hidden sm:inline">Spawn Thought</span>
+                        </button>
+                    </div>
+
+                    <!-- Category Sector, Shape & Aura Pickers -->
+                    <div class="flex items-center justify-between px-1 text-xs text-slate-300">
+                        <div class="flex items-center gap-2.5 overflow-x-auto py-1">
+                            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold shrink-0">Sector:</span>
+                            <select id="worldSectorSelect" class="bg-white/90 dark:bg-pensieve-bg/90 border border-pensieve-accent/30 rounded-xl px-2.5 py-1 text-slate-900 dark:text-slate-200 text-xs font-semibold focus:outline-none focus:border-pensieve-accent shadow-sm">
+                                <!-- Populated dynamically -->
+                            </select>
+
+                            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold shrink-0 ml-1">Shape:</span>
+                            <select id="bubbleShapeSelect" class="bg-white/90 dark:bg-pensieve-bg/90 border border-pensieve-accent/30 rounded-xl px-2.5 py-1 text-slate-900 dark:text-slate-200 text-xs font-semibold focus:outline-none focus:border-pensieve-accent shadow-sm">
+                                <option value="rounded-card">Rounded Card</option>
+                                <option value="pill">Pill</option>
+                                <option value="circle">Circular</option>
+                            </select>
+
+                            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold shrink-0 ml-1">Aura:</span>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button type="button" onclick="selectAura('cyan')" class="aura-btn w-4 h-4 rounded-full bg-pensieve-cyan ring-2 ring-white/60 hover:scale-125 transition-transform shadow-sm" data-aura="cyan" title="Cyan Aura"></button>
+                                <button type="button" onclick="selectAura('gold')" class="aura-btn w-4 h-4 rounded-full bg-pensieve-gold ring-1 ring-white/30 hover:scale-125 transition-transform shadow-sm" data-aura="gold" title="Gold Aura"></button>
+                                <button type="button" onclick="selectAura('purple')" class="aura-btn w-4 h-4 rounded-full bg-pensieve-purple ring-1 ring-white/30 hover:scale-125 transition-transform shadow-sm" data-aura="purple" title="Purple Aura"></button>
+                                <button type="button" onclick="selectAura('rose')" class="aura-btn w-4 h-4 rounded-full bg-pensieve-rose ring-1 ring-white/30 hover:scale-125 transition-transform shadow-sm" data-aura="rose" title="Rose Aura"></button>
+                            </div>
+                        </div>
+
+                        <!-- Realtime Audio Wave Visualizer Indicator when recording -->
+                        <div id="recordingWave" class="hidden items-center gap-1">
+                            <span class="w-1.5 h-3.5 bg-pensieve-rose rounded-full animate-bounce"></span>
+                            <span class="w-1.5 h-5 bg-pensieve-rose rounded-full animate-bounce delay-100"></span>
+                            <span class="w-1.5 h-2.5 bg-pensieve-rose rounded-full animate-bounce delay-200"></span>
+                            <span class="text-[11px] text-pensieve-rose font-bold ml-1">Listening...</span>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Container for HTML Thought Node Bubbles -->
+    <div id="nodesContainer" class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-10"></div>
+
+    <!-- Thought Detail Drawer -->
+    <div id="thoughtDetailDrawer" class="fixed inset-y-0 right-0 w-full sm:w-[500px] z-50 glass-panel border-l border-pensieve-accent/40 shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300 ease-in-out pointer-events-auto">
+        <div class="p-5 border-b border-pensieve-accent/20 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <span id="detailSectorBadge" class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-pensieve-accent/20 text-pensieve-accent border border-pensieve-accent/40 shadow-sm">Sector</span>
+                <span class="text-xs text-slate-400 font-semibold"><i class="fa-regular fa-folder-open mr-1.5"></i>Thought Page</span>
+            </div>
+            <button onclick="closeDetailDrawer()" class="w-9 h-9 rounded-full bg-slate-800/50 text-slate-300 hover:text-white flex items-center justify-center transition-colors shadow-sm">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <div class="p-6 flex-1 overflow-y-auto flex flex-col gap-6">
+            <input type="hidden" id="detailNodeId">
+
+            <!-- Title Input -->
+            <div class="flex flex-col gap-2">
+                <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Thought Title</label>
+                <input type="text" id="detailTitleInput" class="text-xl font-bold w-full bg-transparent border-b-2 border-pensieve-accent/40 focus:border-pensieve-accent text-slate-900 dark:text-slate-100 focus:outline-none pb-1.5 transition-colors" placeholder="Thought title...">
+            </div>
+
+            <!-- Optional Attached Cover Photo preview area -->
+            <div id="detailPhotoContainer" class="relative w-full h-36 rounded-2xl overflow-hidden border border-pensieve-accent/30 shadow-md group hidden">
+                <img id="detailPreviewImage" src="" class="w-full h-full object-cover" alt="Thought Photo">
+                <button onclick="removePhotoFromDrawer()" class="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-pensieve-rose/80 text-white text-[10px] font-bold hover:bg-pensieve-rose transition-all flex items-center gap-1 shadow">
+                    <i class="fa-solid fa-trash-can"></i> Remove Photo
+                </button>
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <button onclick="attachPhotoFromDrawer()" class="px-3.5 py-2 rounded-xl bg-pensieve-surface/90 text-pensieve-accent text-xs font-bold border border-pensieve-accent/40 hover:bg-pensieve-accent hover:text-pensieve-bg transition-all flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-camera"></i> <span id="photoBtnText">Attach Cover Photo</span>
+                </button>
+            </div>
+
+            <!-- Detailed Description -->
+            <div class="flex flex-col gap-2">
+                <label class="text-xs font-bold uppercase tracking-wider text-pensieve-accent flex items-center gap-2">
+                    <i class="fa-solid fa-align-left text-sm"></i> Comprehensive Description
+                </label>
+                <textarea id="detailDescriptionInput" rows="4" placeholder="Detail the core narrative, context, background, or goals behind this thought..."
+                    class="w-full p-3.5 rounded-2xl bg-white/90 dark:bg-pensieve-bg/90 border border-pensieve-accent/30 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-pensieve-accent transition-all resize-y shadow-inner"></textarea>
+            </div>
+
+            <!-- Reference Link / URL -->
+            <div class="flex flex-col gap-2">
+                <label class="text-xs font-bold uppercase tracking-wider text-pensieve-cyan flex items-center gap-2">
+                    <i class="fa-solid fa-link text-sm"></i> Attached Link / Reference URL
+                </label>
+                <div class="flex items-center gap-2">
+                    <input type="url" id="detailLinkInput" placeholder="https://example.com/research-or-article"
+                        class="flex-1 px-3.5 py-2.5 rounded-xl bg-white/90 dark:bg-pensieve-bg/90 border border-pensieve-accent/30 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-pensieve-accent transition-all shadow-inner">
+                    <a id="detailOpenLinkBtn" href="#" target="_blank" class="px-4 py-2.5 rounded-xl bg-pensieve-cyan/25 text-pensieve-cyan hover:bg-pensieve-cyan/40 text-xs font-bold border border-pensieve-cyan/50 transition-all hidden flex items-center gap-1.5 shadow-md">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
+                    </a>
+                </div>
+            </div>
+
+            <!-- Rapid Thought Sparks / Ideas List -->
+            <div class="flex flex-col gap-2">
+                <label class="text-xs font-bold uppercase tracking-wider text-pensieve-gold flex items-center gap-2">
+                    <i class="fa-solid fa-lightbulb text-sm"></i> Spontaneous Ideas & Key Notes
+                </label>
+                <textarea id="detailIdeasInput" rows="4" placeholder="Write down any quick ideas that pop into your head..."
+                    class="w-full p-3.5 rounded-2xl bg-white/90 dark:bg-pensieve-bg/90 border border-pensieve-accent/30 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-pensieve-accent transition-all resize-y shadow-inner"></textarea>
+            </div>
+        </div>
+
+        <!-- Drawer Footer -->
+        <div class="p-5 border-t border-pensieve-accent/20 flex items-center justify-between gap-3">
+            <button onclick="deleteThoughtFromDrawer()" class="px-4 py-2.5 rounded-xl bg-pensieve-rose/20 text-pensieve-rose hover:bg-pensieve-rose/30 text-xs font-bold transition-all border border-pensieve-rose/40 flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-trash-can"></i> Dissolve
+            </button>
+            <div class="flex items-center gap-2.5">
+                <button onclick="closeDetailDrawer()" class="px-4.5 py-2.5 rounded-xl bg-slate-700/50 text-slate-300 font-semibold text-xs hover:bg-slate-700 transition-colors">Cancel</button>
+                <button onclick="saveDetailDrawer()" class="px-5 py-2.5 rounded-xl bg-pensieve-accent text-slate-900 dark:text-pensieve-bg font-bold text-xs hover:opacity-95 shadow-[0_0_20px_rgba(100,255,218,0.5)] flex items-center gap-2 transition-transform hover:scale-105">
+                    <i class="fa-solid fa-floppy-disk"></i> Retain Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Thought Modal -->
+    <div id="editThoughtModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md hidden pointer-events-auto">
+        <div class="glass-panel w-96 p-6 rounded-3xl border border-pensieve-accent/40 flex flex-col gap-4 shadow-2xl">
+            <div class="flex items-center justify-between">
+                <h3 class="font-cinzel font-bold text-lg text-pensieve-accent"><i class="fa-solid fa-pen-to-square mr-2"></i>Edit Thought</h3>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <input type="hidden" id="editNodeId">
+            
+            <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-300">Thought Title</label>
+                <input type="text" id="editNodeTitle" class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-white/90 dark:bg-pensieve-deep/90 border border-pensieve-accent/30 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-pensieve-accent shadow-inner">
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-300">Sector (Category)</label>
+                <select id="editNodeSector" class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-white/90 dark:bg-pensieve-deep/90 border border-pensieve-accent/30 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-pensieve-accent shadow-sm">
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-300">Bubble Shape</label>
+                <select id="editNodeShape" class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-white/90 dark:bg-pensieve-deep/90 border border-pensieve-accent/30 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-pensieve-accent shadow-sm">
+                    <option value="rounded-card">Rounded Card</option>
+                    <option value="pill">Pill</option>
+                    <option value="circle">Circular</option>
+                </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-300">Aura Glow</label>
+                <select id="editNodeAura" class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-white/90 dark:bg-pensieve-deep/90 border border-pensieve-accent/30 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-pensieve-accent shadow-sm">
+                    <option value="cyan">Cyan Glow</option>
+                    <option value="gold">Gold Glow</option>
+                    <option value="purple">Purple Glow</option>
+                    <option value="rose">Rose Glow</option>
+                </select>
+            </div>
+
+            <div class="flex justify-end gap-2.5 mt-3">
+                <button onclick="closeEditModal()" class="px-4 py-2.5 rounded-xl bg-slate-700/50 text-slate-300 font-semibold text-xs hover:bg-slate-700 transition-colors">Cancel</button>
+                <button onclick="saveThoughtEdit()" class="px-4 py-2.5 rounded-xl bg-pensieve-accent text-slate-900 dark:text-pensieve-bg font-bold text-xs hover:opacity-95 shadow-[0_0_15px_rgba(100,255,218,0.4)]">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md hidden pointer-events-auto">
+        <div class="glass-panel w-full max-w-md p-6 rounded-3xl border border-pensieve-accent/40 flex flex-col gap-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between">
+                <h3 class="font-cinzel font-bold text-lg text-pensieve-accent"><i class="fa-solid fa-gear mr-2"></i>Pensieve Settings & Categories</h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <p class="text-xs text-slate-300">Manage your mind map categories (sectors), inspect cloud synchronization status, and clear data if needed.</p>
+            
+            <!-- Category Management Section -->
+            <div class="flex flex-col gap-2.5 pt-2 border-t border-slate-700/60">
+                <label class="text-xs font-bold text-slate-200">Categories (Sectors)</label>
+                <div id="categoryManagerList" class="flex flex-col gap-2 max-h-40 overflow-y-auto pr-1">
+                    <!-- Populated dynamically -->
+                </div>
+                
+                <div class="flex items-center gap-2 mt-1.5">
+                    <input type="text" id="newCategoryInput" placeholder="New category name..." 
+                        class="flex-1 px-3.5 py-2.5 text-xs rounded-xl bg-white/90 dark:bg-pensieve-deep/90 border border-pensieve-accent/30 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-pensieve-accent shadow-inner">
+                    <button onclick="addNewCategory()" class="px-4 py-2.5 rounded-xl bg-pensieve-accent text-slate-900 dark:text-pensieve-bg font-bold text-xs hover:opacity-95 shrink-0 shadow-md">
+                        <i class="fa-solid fa-plus mr-1"></i> Add Category
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
+                <label class="text-xs font-bold text-slate-200">Cloud Status</label>
+                <div class="px-4 py-3 rounded-xl bg-white/90 dark:bg-pensieve-deep/90 border border-pensieve-accent/30 text-xs flex items-center justify-between shadow-inner">
+                    <span class="text-pensieve-cyan font-semibold flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-up text-sm"></i> JSONBin Cloud Sync Active</span>
+                    <span id="cloudNodeCount" class="text-slate-300 font-semibold">0 nodes</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
+                <label class="text-xs font-bold text-slate-200">Data Management</label>
+                <button onclick="clearCloudPensieve()" class="px-4 py-2.5 rounded-xl bg-pensieve-rose/20 text-pensieve-rose hover:bg-pensieve-rose/30 text-xs font-bold transition-all border border-pensieve-rose/40 flex items-center justify-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-trash-can"></i> Clear Cloud Pensieve
+                </button>
+            </div>
+
+            <div class="flex justify-end mt-2">
+                <button onclick="closeSettingsModal()" class="px-5 py-2.5 rounded-xl bg-pensieve-accent text-slate-900 dark:text-pensieve-bg font-bold text-xs hover:opacity-95 shadow-md">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // JSONBin.io Cloud Persistence Layer
+        const BIN_ID = '65f12345abcdef1234567890'; 
+        const API_KEY = '$2a$10$demoKeyPlaceholderForPensieveAppSync999999999999999'; 
+
+        window.loadThoughtsFromCloud = async function() {
+            try {
+                const localBridge = localStorage.getItem('pensieve_cloud_store');
+                if (localBridge) {
+                    const parsed = JSON.parse(localBridge);
+                    thoughts = parsed.thoughts || [];
+                    connections = parsed.connections || [];
+                    renderNodesHTML();
+                    updateCloudCount();
+                }
+            } catch (e) {
+                console.log("Storage load error");
+            }
+        };
+
+        window.saveThoughtToCloud = async function(thought) {
+            const existingIndex = thoughts.findIndex(t => t.id === thought.id);
+            if (existingIndex >= 0) {
+                thoughts[existingIndex] = thought;
+            } else {
+                thoughts.push(thought);
+            }
+            localStorage.setItem('pensieve_cloud_store', JSON.stringify({ thoughts, connections }));
+            renderNodesHTML();
+            updateCloudCount();
+        };
+
+        window.deleteThoughtFromCloud = async function(id) {
+            thoughts = thoughts.filter(t => t.id !== id);
+            connections = connections.filter(c => c.sourceId !== id && c.targetId !== id);
+            localStorage.setItem('pensieve_cloud_store', JSON.stringify({ thoughts, connections }));
+            renderNodesHTML();
+            updateCloudCount();
+        };
+
+        window.saveConnectionToCloud = async function(connection) {
+            connections.push(connection);
+            localStorage.setItem('pensieve_cloud_store', JSON.stringify({ thoughts, connections }));
+        };
+
+        window.clearCloudDatabase = async function() {
+            thoughts = [];
+            connections = [];
+            localStorage.removeItem('pensieve_cloud_store');
+            renderNodesHTML();
+            updateCloudCount();
+        };
+
+        const localData = localStorage.getItem('pensieve_cloud_store');
+        if (localData) {
+            try {
+                const parsed = JSON.parse(localData);
+                thoughts = parsed.thoughts || [];
+                connections = parsed.connections || [];
+            } catch(e) {}
+        }
+        
+        if (thoughts.length === 0) {
+            seedDefaultThoughts();
+        } else {
+            renderNodesHTML();
+        }
+    </script>
+
+    <script>
+        let thoughts = [];
+        let connections = [];
+        let selectedAura = 'cyan';
+        let currentFilter = 'all';
+        let categories = ['Job Stories', 'Other Stories', 'Personal', 'Sparks'];
+
+        let camera = { x: 0, y: 0, zoom: 1 };
+        let isPanning = false;
+        let startPan = { x: 0, y: 0 };
+
+        let draggedNodeId = null;
+        let dragOffset = { x: 0, y: 0 };
+        let isNodeDragged = false;
+        let dragStartClient = { x: 0, y: 0 };
+
+        let particles = [];
+        const PARTICLE_COUNT = 75;
+
+        let recognition = null;
+        let isRecording = false;
+
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const mindmapCanvas = document.getElementById('mindmapCanvas');
+        const mmCtx = mindmapCanvas.getContext('2d');
+        const nodesContainer = document.getElementById('nodesContainer');
+
+        function populateCategorySelectors() {
+            const selectEl = document.getElementById('worldSectorSelect');
+            const editSelect = document.getElementById('editNodeSector');
+            const filterContainer = document.getElementById('worldSectorsContainer');
+            const catManagerList = document.getElementById('categoryManagerList');
+
+            if (selectEl) {
+                const currentVal = selectEl.value;
+                selectEl.innerHTML = '';
+                categories.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.textContent = cat;
+                    if (cat === currentVal) opt.selected = true;
+                    selectEl.appendChild(opt);
+                });
+            }
+
+            if (editSelect) {
+                const currentVal = editSelect.value;
+                editSelect.innerHTML = '';
+                categories.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.textContent = cat;
+                    if (cat === currentVal) opt.selected = true;
+                    editSelect.appendChild(opt);
+                });
+            }
+
+            if (filterContainer) {
+                let html = `<button onclick="filterWorld('all')" class="world-filter-btn px-3.5 py-1.5 rounded-full text-xs font-semibold ${currentFilter === 'all' ? 'text-pensieve-accent bg-pensieve-accent/15 border border-pensieve-accent/40 shadow-sm' : 'text-slate-400 hover:text-white'} transition-all"><i class="fa-solid fa-globe mr-1"></i> All Worlds</button>`;
+                categories.forEach(cat => {
+                    const active = currentFilter === cat;
+                    html += `<button onclick="filterWorld('${cat}')" class="world-filter-btn px-3.5 py-1.5 rounded-full text-xs font-semibold ${active ? 'text-pensieve-accent bg-pensieve-accent/15 border border-pensieve-accent/40 shadow-sm' : 'text-slate-400 hover:text-white'} transition-all">${cat}</button>`;
+                });
+                filterContainer.innerHTML = html;
+            }
+
+            if (catManagerList) {
+                let managerHtml = '';
+                categories.forEach((cat, index) => {
+                    managerHtml += `
+                        <div class="flex items-center justify-between px-3.5 py-2 rounded-xl bg-pensieve-surface/80 border border-pensieve-accent/20 text-xs shadow-sm">
+                            <span class="font-semibold text-slate-100">${cat}</span>
+                            ${categories.length > 1 ? `<button onclick="removeCategory(${index})" class="text-pensieve-rose hover:opacity-80 p-1" title="Delete Category"><i class="fa-solid fa-xmark"></i></button>` : ''}
+                        </div>
+                    `;
+                });
+                catManagerList.innerHTML = managerHtml;
+            }
+        }
+
+        window.onload = function() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            initParticles();
+            initSpeechRecognition();
+            populateCategorySelectors();
+
+            window.addEventListener('mousedown', onMouseDown);
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+            window.addEventListener('wheel', onWheel, { passive: false });
+
+            window.addEventListener('touchstart', onTouchStart, { passive: false });
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            window.addEventListener('touchend', onTouchEnd);
+
+            requestAnimationFrame(renderLoop);
+        };
+
+        function resizeCanvas() {
+            bgCanvas.width = window.innerWidth;
+            bgCanvas.height = window.innerHeight;
+            mindmapCanvas.width = window.innerWidth;
+            mindmapCanvas.height = window.innerHeight;
+        }
+
+        function seedDefaultThoughts() {
+            if (thoughts.length > 0) return;
+            const center = screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+
+            const root = createThought("Key Job Story Milestone", "Job Stories", "cyan", center.x - 130, center.y - 110, null, "rounded-card");
+            root.description = "Core objective for the quarter focusing on high-impact user experiences and system retention.";
+            root.link = "https://github.com";
+            root.ideas = "• Add interactive card details\n• Enable instant search indexing\n• Retain all research references";
+
+            const sub1 = createThought("Creative Spark Concept", "Sparks", "gold", center.x + 160, center.y - 190, root.id, "circle");
+            sub1.description = "Inspirational narrative spark inspired by atmospheric science fiction aesthetics.";
+
+            const sub2 = createThought("Personal Reflection Notes", "Personal", "purple", center.x - 260, center.y + 110, root.id, "pill");
+            const sub3 = createThought("Other Stories Chapter 1", "Other Stories", "rose", center.x + 120, center.y + 130, root.id, "rounded-card");
+
+            saveThoughtToCloud(root);
+            saveThoughtToCloud(sub1);
+            saveThoughtToCloud(sub2);
+            saveThoughtToCloud(sub3);
+        }
+
+        function createThought(title, sector, aura = 'cyan', posX = null, posY = null, parentId = null, shape = 'rounded-card') {
+            const id = 'thought_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+            const worldCenter = screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+            const x = posX !== null ? posX : worldCenter.x + (Math.random() - 0.5) * 300;
+            const y = posY !== null ? posY : worldCenter.y + (Math.random() - 0.5) * 300;
+
+            const newThought = {
+                id,
+                title: title.trim(),
+                sector: sector || categories[0],
+                aura: aura || selectedAura,
+                shape: shape || document.getElementById('bubbleShapeSelect').value,
+                x,
+                y,
+                parentId,
+                photoUrl: '',
+                description: '',
+                link: '',
+                ideas: '',
+                createdAt: Date.now()
+            };
+
+            thoughts.push(newThought);
+            saveThoughtToCloud(newThought);
+
+            if (parentId) {
+                const newConn = { sourceId: parentId, targetId: id };
+                connections.push(newConn);
+                saveConnectionToCloud(newConn);
+                createParticleBurstWorld(x, y, aura);
+            }
+
+            renderNodesHTML();
+            showToast(parentId ? "Sub-thought spawned!" : "Thought captured in cloud Pensieve!");
+            return newThought;
+        }
+
+        function openDetailDrawer(id, event) {
+            if (event) event.stopPropagation();
+            const t = thoughts.find(item => item.id === id);
+            if (!t) return;
+
+            document.getElementById('detailNodeId').value = t.id;
+            document.getElementById('detailTitleInput').value = t.title;
+            document.getElementById('detailSectorBadge').textContent = t.sector;
+            document.getElementById('detailDescriptionInput').value = t.description || '';
+            document.getElementById('detailLinkInput').value = t.link || '';
+            document.getElementById('detailIdeasInput').value = t.ideas || '';
+
+            const photoContainer = document.getElementById('detailPhotoContainer');
+            const previewImg = document.getElementById('detailPreviewImage');
+            const photoBtnText = document.getElementById('photoBtnText');
+
+            if (t.photoUrl && t.photoUrl.trim() !== '') {
+                previewImg.src = t.photoUrl;
+                photoContainer.classList.remove('hidden');
+                photoBtnText.textContent = "Change Cover Photo";
+            } else {
+                photoContainer.classList.add('hidden');
+                photoBtnText.textContent = "Attach Cover Photo";
+            }
+
+            const openBtn = document.getElementById('detailOpenLinkBtn');
+            if (t.link && t.link.trim() !== '') {
+                openBtn.href = t.link.startsWith('http') ? t.link : 'https://' + t.link;
+                openBtn.classList.remove('hidden');
+            } else {
+                openBtn.classList.add('hidden');
+            }
+
+            document.getElementById('thoughtDetailDrawer').classList.remove('translate-x-full');
+        }
+        window.openDetailDrawer = openDetailDrawer;
+
+        function closeDetailDrawer() {
+            document.getElementById('thoughtDetailDrawer').classList.add('translate-x-full');
+        }
+        window.closeDetailDrawer = closeDetailDrawer;
+
+        function saveDetailDrawer() {
+            const id = document.getElementById('detailNodeId').value;
+            const t = thoughts.find(item => item.id === id);
+            if (!t) return;
+
+            const newTitle = document.getElementById('detailTitleInput').value.trim();
+            if (!newTitle) {
+                showToast("Thought title cannot be empty!");
+                return;
+            }
+
+            t.title = newTitle;
+            t.description = document.getElementById('detailDescriptionInput').value;
+            t.link = document.getElementById('detailLinkInput').value.trim();
+            t.ideas = document.getElementById('detailIdeasInput').value;
+
+            saveThoughtToCloud(t);
+            renderNodesHTML();
+            closeDetailDrawer();
+            showToast("Thought card retainably saved!");
+        }
+        window.saveDetailDrawer = saveDetailDrawer;
+
+        function deleteThoughtFromDrawer() {
+            const id = document.getElementById('detailNodeId').value;
+            closeDetailDrawer();
+            deleteThought(id);
+        }
+        window.deleteThoughtFromDrawer = deleteThoughtFromDrawer;
+
+        function attachPhotoFromDrawer() {
+            const id = document.getElementById('detailNodeId').value;
+            const url = prompt("Enter photo image URL for this thought cover:");
+            if (url) {
+                const t = thoughts.find(item => item.id === id);
+                if (t) {
+                    t.photoUrl = url.trim();
+                    saveThoughtToCloud(t);
+                    renderNodesHTML();
+                    openDetailDrawer(id);
+                    showToast("Cover photo attached!");
+                }
+            }
+        }
+        window.attachPhotoFromDrawer = attachPhotoFromDrawer;
+
+        function removePhotoFromDrawer() {
+            const id = document.getElementById('detailNodeId').value;
+            const t = thoughts.find(item => item.id === id);
+            if (t) {
+                t.photoUrl = '';
+                saveThoughtToCloud(t);
+                renderNodesHTML();
+                openDetailDrawer(id);
+                showToast("Photo removed");
+            }
+        }
+        window.removePhotoFromDrawer = removePhotoFromDrawer;
+
+        function attachPhotoPrompt(id, event) {
+            if (event) event.stopPropagation();
+            const url = prompt("Enter photo image URL for this thought cover:");
+            if (url) {
+                const t = thoughts.find(item => item.id === id);
+                if (t) {
+                    t.photoUrl = url.trim();
+                    saveThoughtToCloud(t);
+                    renderNodesHTML();
+                    showToast("Cover photo attached!");
+                }
+            }
+        }
+        window.attachPhotoPrompt = attachPhotoPrompt;
+
+        function renderNodesHTML() {
+            nodesContainer.innerHTML = '';
+
+            thoughts.forEach(t => {
+                if (currentFilter !== 'all' && t.sector !== currentFilter) return;
+
+                const screenPos = worldToScreen(t.x, t.y);
+                const nodeEl = document.createElement('div');
+                nodeEl.className = `thought-node pointer-events-auto aura-${t.aura || 'cyan'}`;
+                nodeEl.id = t.id;
+                nodeEl.style.transform = `translate(${screenPos.x}px, ${screenPos.y}px) scale(${camera.zoom})`;
+
+                const hasRichData = (t.description && t.description.trim()) || (t.link && t.link.trim()) || (t.ideas && t.ideas.trim());
+
+                if (t.shape === 'circle') {
+                    nodeEl.innerHTML = `
+                        <div class="thought-node-inner shape-circle group relative">
+                            ${hasRichData ? `<span class="absolute top-2.5 left-2.5 text-[10px] text-pensieve-gold bg-black/40 px-1.5 py-0.5 rounded-full shadow"><i class="fa-solid fa-file-lines"></i></span>` : ''}
+
+                            <div class="absolute -top-3 right-0 flex items-center gap-1 z-30">
+                                <button type="button" onclick="openDetailDrawer('${t.id}', event)" class="w-6 h-6 rounded-full bg-pensieve-surface text-pensieve-accent border border-pensieve-accent/50 flex items-center justify-center text-[10px] shadow hover:bg-pensieve-accent hover:text-pensieve-bg transition-colors" title="Open Page"><i class="fa-solid fa-folder-open"></i></button>
+                                <button type="button" onclick="openEditModal('${t.id}', event)" class="w-6 h-6 rounded-full bg-pensieve-surface text-pensieve-cyan border border-pensieve-cyan/50 flex items-center justify-center text-[10px] shadow hover:bg-pensieve-cyan hover:text-pensieve-bg transition-colors" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                                <button type="button" onclick="attachPhotoPrompt('${t.id}', event)" class="w-6 h-6 rounded-full bg-pensieve-surface text-pensieve-gold border border-pensieve-gold/50 flex items-center justify-center text-[10px] shadow hover:bg-pensieve-gold hover:text-pensieve-bg transition-colors" title="Attach Photo"><i class="fa-solid fa-camera"></i></button>
+                                <button type="button" onclick="deleteThought('${t.id}', event)" class="w-6 h-6 rounded-full bg-pensieve-surface text-pensieve-rose border border-pensieve-rose/50 flex items-center justify-center text-[10px] shadow hover:bg-pensieve-rose hover:text-white transition-colors" title="Delete"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+
+                            <span class="text-[9px] uppercase tracking-wider text-pensieve-accent font-extrabold z-10 px-2 py-0.5 rounded-full bg-pensieve-bg/50 border border-pensieve-accent/30 mb-1">${t.sector}</span>
+                            <h3 class="font-bold text-xs text-slate-900 dark:text-slate-100 z-10 line-clamp-3 leading-snug">${escapeHtml(t.title)}</h3>
+                            
+                            <div class="flex items-center gap-2 mt-2 z-10">
+                                <button type="button" onclick="spawnSubIdea('${t.id}', event)" class="text-[10px] text-pensieve-cyan font-bold hover:underline bg-pensieve-bg/60 px-2.5 py-0.5 rounded-full border border-pensieve-cyan/30">Expand</button>
+                            </div>
+                        </div>
+                    `;
+                } else if (t.shape === 'pill') {
+                    nodeEl.innerHTML = `
+                        <div class="thought-node-inner shape-pill px-4.5 py-2.5 flex items-center gap-3 group relative shadow-lg">
+                            <div class="flex flex-col">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[9px] uppercase tracking-wider text-pensieve-accent font-extrabold">${t.sector}</span>
+                                    ${hasRichData ? `<i class="fa-solid fa-file-lines text-[10px] text-pensieve-gold" title="Has rich info"></i>` : ''}
+                                </div>
+                                <h3 class="font-bold text-xs text-slate-900 dark:text-slate-100 whitespace-nowrap">${escapeHtml(t.title)}</h3>
+                            </div>
+                            <div class="flex items-center gap-1.5 ml-2">
+                                <button type="button" onclick="openDetailDrawer('${t.id}', event)" class="w-6 h-6 rounded-full bg-pensieve-surface text-pensieve-accent border border-pensieve-accent/40 flex items-center justify-center text-[10px] shadow hover:bg-pensieve-accent hover:text-pensieve-bg transition-colors" title="Open Page"><i class="fa-solid fa-folder-open"></i></button>
+                                <button type="button" onclick="openEditModal('${t.id}', event)" class="w-6 h-6 rounded-full bg-pensieve-surface text-pensieve-cyan border border-pensieve-cyan/40 flex items-center justify-center text-[10px] shadow hover:bg-pensieve-cyan hover:text-pensieve-bg transition-colors" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                                <button type="button" onclick="attachPhotoPrompt('${t.id}', event)" class="w-6 h-6 rounded-full bg-pensieve-surface text-pensieve-gold border border-pensieve-gold/40 flex items-center justify-center text-[10px] shadow hover:bg-pensieve-gold hover:text-pensieve-bg transition-colors" title="Attach Photo"><i class="fa-solid fa-camera"></i></button>
+                                <button type="button" onclick="spawnSubIdea('${t.id}', event)" class="w-6 h-6 rounded-full bg-pensieve-surface text-pensieve-cyan border border-pensieve-cyan/40 flex items-center justify-center text-[10px] shadow hover:bg-pensieve-cyan hover:text-pensieve-bg transition-colors" title="Expand"><i class="fa-solid fa-plus"></i></button>
+                                <button type="button" onclick="deleteThought('${t.id}', event)" class="w-6 h-6 rounded-full bg-pensieve-surface text-pensieve-rose border border-pensieve-rose/40 flex items-center justify-center text-[10px] shadow hover:bg-pensieve-rose hover:text-white transition-colors" title="Delete"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    nodeEl.innerHTML = `
+                        <div class="thought-node-inner shape-rounded-card w-64 md:w-72 overflow-hidden flex flex-col group shadow-2xl">
+                            ${t.photoUrl ? `
+                                <div class="relative h-28 w-full overflow-hidden bg-pensieve-deep">
+                                    <img src="${t.photoUrl}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="Thought Photo" />
+                                    <div class="absolute inset-0 bg-gradient-to-t from-pensieve-deep via-pensieve-deep/20 to-transparent"></div>
+                                </div>
+                            ` : ''}
+
+                            <div class="p-4 flex flex-col gap-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-2.5 py-0.5 text-[10px] rounded-full bg-pensieve-surface border border-pensieve-accent/30 text-pensieve-accent font-bold tracking-wide">
+                                        ${t.sector}
+                                    </span>
+                                    <div class="flex items-center gap-1.5">
+                                        <button type="button" onclick="openDetailDrawer('${t.id}', event)" title="Open Thought Page" 
+                                            class="w-7 h-7 rounded-full bg-pensieve-surface text-pensieve-accent border border-pensieve-accent/40 hover:bg-pensieve-accent hover:text-pensieve-bg flex items-center justify-center text-xs shadow transition-all">
+                                            <i class="fa-solid fa-folder-open"></i>
+                                        </button>
+                                        <button type="button" onclick="openEditModal('${t.id}', event)" title="Edit Thought" 
+                                            class="w-7 h-7 rounded-full bg-pensieve-surface text-pensieve-cyan border border-pensieve-cyan/40 hover:bg-pensieve-cyan hover:text-pensieve-bg flex items-center justify-center text-xs shadow transition-all">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button type="button" onclick="attachPhotoPrompt('${t.id}', event)" title="Attach Photo" 
+                                            class="w-7 h-7 rounded-full bg-pensieve-surface text-pensieve-gold border border-pensieve-gold/40 hover:bg-pensieve-gold hover:text-pensieve-bg flex items-center justify-center text-xs shadow transition-all">
+                                            <i class="fa-solid fa-camera"></i>
+                                        </button>
+                                        <button type="button" onclick="deleteThought('${t.id}', event)" title="Delete Thought" 
+                                            class="w-7 h-7 rounded-full bg-pensieve-surface text-pensieve-rose border border-pensieve-rose/40 hover:bg-pensieve-rose hover:text-white flex items-center justify-center text-xs shadow transition-all">
+                                            <i class="fa-solid fa-xmark"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <h3 class="font-bold text-xs md:text-sm text-slate-900 dark:text-slate-100 leading-snug line-clamp-2 mt-1">
+                                    ${escapeHtml(t.title)}
+                                </h3>
+
+                                ${t.description ? `<p class="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">${escapeHtml(t.description)}</p>` : ''}
+
+                                <div class="flex items-center justify-between mt-1 pt-2 border-t border-pensieve-accent/20 text-[10px] text-slate-300">
+                                    <div class="flex items-center gap-2">
+                                        ${t.link ? `<i class="fa-solid fa-link text-pensieve-cyan" title="Attached Link"></i>` : ''}
+                                        ${t.ideas ? `<i class="fa-solid fa-lightbulb text-pensieve-gold" title="Quick Notes"></i>` : ''}
+                                        <span class="text-slate-400 font-medium">${new Date(t.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                    </div>
+                                    
+                                    <button type="button" onclick="spawnSubIdea('${t.id}', event)" class="text-pensieve-accent hover:underline flex items-center gap-1 font-bold bg-pensieve-accent/10 px-2 py-0.5 rounded-full border border-pensieve-accent/30 transition-colors">
+                                        <i class="fa-solid fa-plus text-[9px]"></i> Expand
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                nodeEl.addEventListener('mousedown', (e) => onNodeMouseDown(e, t.id));
+                nodeEl.addEventListener('touchstart', (e) => onNodeTouchStart(e, t.id), { passive: false });
+
+                nodesContainer.appendChild(nodeEl);
+            });
+        }
+
+        function updateNodesPositions() {
+            thoughts.forEach(t => {
+                const nodeEl = document.getElementById(t.id);
+                if (nodeEl) {
+                    const screenPos = worldToScreen(t.x, t.y);
+                    nodeEl.style.transform = `translate(${screenPos.x}px, ${screenPos.y}px) scale(${camera.zoom})`;
+                }
+            });
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function screenToWorld(sx, sy) {
+            return { x: (sx - camera.x) / camera.zoom, y: (sy - camera.y) / camera.zoom };
+        }
+
+        function worldToScreen(wx, wy) {
+            return { x: wx * camera.zoom + camera.x, y: wy * camera.zoom + camera.y };
+        }
+
+        function onMouseDown(e) {
+            if (e.target.closest('.thought-node') || e.target.closest('header') || e.target.closest('footer') || e.target.closest('#settingsModal') || e.target.closest('#editThoughtModal') || e.target.closest('#thoughtDetailDrawer')) return;
+            isPanning = true;
+            startPan = { x: e.clientX - camera.x, y: e.clientY - camera.y };
+        }
+
+        function onMouseMove(e) {
+            if (draggedNodeId) {
+                const dx = e.clientX - dragStartClient.x;
+                const dy = e.clientY - dragStartClient.y;
+                if (Math.hypot(dx, dy) > 4) {
+                    isNodeDragged = true;
+                }
+                const worldPos = screenToWorld(e.clientX, e.clientY);
+                const node = thoughts.find(t => t.id === draggedNodeId);
+                if (node) {
+                    node.x = worldPos.x - dragOffset.x;
+                    node.y = worldPos.y - dragOffset.y;
+                    updateNodesPositions();
+                }
+                return;
+            }
+
+            if (isPanning) {
+                camera.x = e.clientX - startPan.x;
+                camera.y = e.clientY - startPan.y;
+                updateNodesPositions();
+            }
+        }
+
+        function onMouseUp() {
+            if (draggedNodeId && isNodeDragged) {
+                const node = thoughts.find(t => t.id === draggedNodeId);
+                if (node) saveThoughtToCloud(node);
+            }
+            isPanning = false;
+            draggedNodeId = null;
+            isNodeDragged = false;
+        }
+
+        function onWheel(e) {
+            e.preventDefault();
+            const zoomFactor = e.deltaY < 0 ? 1.08 : 0.92;
+            const newZoom = Math.min(Math.max(camera.zoom * zoomFactor, 0.3), 2.5);
+            const mouseWorld = screenToWorld(e.clientX, e.clientY);
+
+            camera.zoom = newZoom;
+            camera.x = e.clientX - mouseWorld.x * camera.zoom;
+            camera.y = e.clientY - mouseWorld.y * camera.zoom;
+            updateNodesPositions();
+        }
+
+        function onNodeMouseDown(e, id) {
+            if (e.target.closest('button') || e.target.closest('a')) return;
+            e.stopPropagation();
+            draggedNodeId = id;
+            isNodeDragged = false;
+            dragStartClient = { x: e.clientX, y: e.clientY };
+            const worldPos = screenToWorld(e.clientX, e.clientY);
+            const node = thoughts.find(t => t.id === id);
+            if (node) {
+                dragOffset = { x: worldPos.x - node.x, y: worldPos.y - node.y };
+            }
+        }
+
+        function onTouchStart(e) {
+            if (e.touches.length === 1 && !e.target.closest('.thought-node') && !e.target.closest('header') && !e.target.closest('footer')) {
+                isPanning = true;
+                const touch = e.touches[0];
+                startPan = { x: touch.clientX - camera.x, y: touch.clientY - camera.y };
+            }
+        }
+
+        function onTouchMove(e) {
+            if (e.touches.length === 1 && isPanning) {
+                const touch = e.touches[0];
+                camera.x = touch.clientX - startPan.x;
+                camera.y = touch.clientY - startPan.y;
+                updateNodesPositions();
+            }
+        }
+
+        function onTouchEnd() { isPanning = false; draggedNodeId = null; isNodeDragged = false; }
+
+        function onNodeTouchStart(e, id) {
+            if (e.target.closest('button') || e.target.closest('a')) return;
+            if (e.touches.length === 1) {
+                e.stopPropagation();
+                draggedNodeId = id;
+                isNodeDragged = false;
+                const touch = e.touches[0];
+                dragStartClient = { x: touch.clientX, y: touch.clientY };
+                const worldPos = screenToWorld(touch.clientX, touch.clientY);
+                const node = thoughts.find(t => t.id === id);
+                if (node) dragOffset = { x: worldPos.x - node.x, y: worldPos.y - node.y };
+            }
+        }
+
+        function resetCamera() {
+            camera = { x: 0, y: 0, zoom: 1 };
+            updateNodesPositions();
+            showToast("Centered Mind Map");
+        }
+        window.resetCamera = resetCamera;
+
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                particles.push({
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    radius: Math.random() * 2.5 + 0.5,
+                    color: ['#0d9488', '#0284c7', '#d97706', '#7c3aed'][Math.floor(Math.random() * 4)],
+                    vx: (Math.random() - 0.5) * 0.4,
+                    vy: (Math.random() - 0.5) * 0.4,
+                    alpha: Math.random() * 0.6 + 0.2
+                });
+            }
+        }
+
+        function createParticleBurstWorld(worldX, worldY, aura) {
+            const screenPos = worldToScreen(worldX, worldY);
+            const colorMap = { cyan: '#00f2fe', gold: '#ffd166', purple: '#a855f7', rose: '#f43f5e' };
+            const color = colorMap[aura] || '#64ffda';
+
+            for (let i = 0; i < 25; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 3 + 1;
+                particles.push({
+                    x: screenPos.x, y: screenPos.y,
+                    radius: Math.random() * 3 + 1.5,
+                    color: color,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    alpha: 1,
+                    isBurst: true
+                });
+            }
+        }
+
+        function renderLoop() {
+            bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+            mmCtx.clearRect(0, 0, mindmapCanvas.width, mindmapCanvas.height);
+
+            particles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.isBurst) {
+                    p.alpha -= 0.02;
+                    if (p.alpha <= 0) particles.splice(idx, 1);
+                } else {
+                    if (p.x < 0) p.x = window.innerWidth;
+                    if (p.x > window.innerWidth) p.x = 0;
+                    if (p.y < 0) p.y = window.innerHeight;
+                    if (p.y > window.innerHeight) p.y = 0;
+                }
+
+                bgCtx.beginPath();
+                bgCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                bgCtx.fillStyle = p.color;
+                bgCtx.globalAlpha = Math.max(p.alpha, 0);
+                bgCtx.fill();
+            });
+            bgCtx.globalAlpha = 1.0;
+
+            connections.forEach(conn => {
+                const source = thoughts.find(t => t.id === conn.sourceId);
+                const target = thoughts.find(t => t.id === conn.targetId);
+
+                if (source && target) {
+                    if (currentFilter !== 'all' && (source.sector !== currentFilter || target.sector !== currentFilter)) return;
+
+                    const sScreen = worldToScreen(source.x + 100, source.y + 60);
+                    const tScreen = worldToScreen(target.x + 100, target.y + 60);
+
+                    const dx = tScreen.x - sScreen.x;
+                    const dy = tScreen.y - sScreen.y;
+                    const cx1 = sScreen.x + dx * 0.5;
+                    const cy1 = sScreen.y;
+                    const cx2 = sScreen.x + dx * 0.5;
+                    const cy2 = tScreen.y;
+
+                    mmCtx.beginPath();
+                    mmCtx.moveTo(sScreen.x, sScreen.y);
+                    mmCtx.bezierCurveTo(cx1, cy1, cx2, cy2, tScreen.x, tScreen.y);
+
+                    const isDark = document.documentElement.classList.contains('dark');
+                    mmCtx.strokeStyle = isDark ? 'rgba(0,242,254,0.6)' : 'rgba(13,148,136,0.7)';
+                    mmCtx.lineWidth = 2 * camera.zoom;
+                    mmCtx.setLineDash([6 * camera.zoom, 4 * camera.zoom]);
+                    mmCtx.stroke();
+                    mmCtx.setLineDash([]);
+                }
+            });
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+
+                recognition.onstart = function() {
+                    isRecording = true;
+                    document.getElementById('voiceBtn').classList.add('recording-active');
+                    document.getElementById('recordingWave').classList.remove('hidden');
+                    document.getElementById('recordingWave').classList.add('flex');
+                    showToast("Listening to your voice thought...");
+                };
+
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    document.getElementById('thoughtTitleInput').value = transcript;
+                    submitNewThought();
+                };
+
+                recognition.onerror = function(event) { stopVoiceInput(); };
+                recognition.onend = function() { stopVoiceInput(); };
+            }
+        }
+
+        function toggleVoiceInput() {
+            if (!recognition) {
+                showToast("Speech Recognition not supported in this browser.");
+                return;
+            }
+            if (isRecording) recognition.stop();
+            else recognition.start();
+        }
+        window.toggleVoiceInput = toggleVoiceInput;
+
+        function stopVoiceInput() {
+            isRecording = false;
+            document.getElementById('voiceBtn').classList.remove('recording-active');
+            document.getElementById('recordingWave').classList.add('hidden');
+            document.getElementById('recordingWave').classList.remove('flex');
+        }
+
+        function openEditModal(id, event) {
+            if (event) event.stopPropagation();
+            const thought = thoughts.find(t => t.id === id);
+            if (!thought) return;
+
+            document.getElementById('editNodeId').value = thought.id;
+            document.getElementById('editNodeTitle').value = thought.title;
+            document.getElementById('editNodeSector').value = thought.sector;
+            document.getElementById('editNodeShape').value = thought.shape || 'rounded-card';
+            document.getElementById('editNodeAura').value = thought.aura || 'cyan';
+
+            document.getElementById('editThoughtModal').classList.remove('hidden');
+        }
+        window.openEditModal = openEditModal;
+
+        function closeEditModal() {
+            document.getElementById('editThoughtModal').classList.add('hidden');
+        }
+        window.closeEditModal = closeEditModal;
+
+        function saveThoughtEdit() {
+            const id = document.getElementById('editNodeId').value;
+            const thought = thoughts.find(t => t.id === id);
+            if (!thought) return;
+
+            const newTitle = document.getElementById('editNodeTitle').value.trim();
+            const newSector = document.getElementById('editNodeSector').value;
+            const newShape = document.getElementById('editNodeShape').value;
+            const newAura = document.getElementById('editNodeAura').value;
+
+            if (!newTitle) {
+                showToast("Title cannot be empty!");
+                return;
+            }
+
+            thought.title = newTitle;
+            thought.sector = newSector;
+            thought.shape = newShape;
+            thought.aura = newAura;
+
+            saveThoughtToCloud(thought);
+            renderNodesHTML();
+            closeEditModal();
+            showToast("Thought updated!");
+        }
+        window.saveThoughtEdit = saveThoughtEdit;
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const themeIcon = document.getElementById('themeIcon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                themeIcon.className = "fa-solid fa-moon text-sm";
+                showToast("Light Ethereal Mode enabled");
+            } else {
+                html.classList.add('dark');
+                themeIcon.className = "fa-solid fa-sun text-sm";
+                showToast("Dark Pensieve Mode enabled");
+            }
+        }
+        window.toggleTheme = toggleTheme;
+
+        function openSettingsModal() {
+            populateCategorySelectors();
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+        window.openSettingsModal = openSettingsModal;
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+        window.closeSettingsModal = closeSettingsModal;
+
+        function updateCloudCount() {
+            const el = document.getElementById('cloudNodeCount');
+            if (el) el.textContent = `${thoughts.length} nodes`;
+        }
+
+        function filterWorld(sector) {
+            currentFilter = sector;
+            populateCategorySelectors();
+            renderNodesHTML();
+            showToast(sector === 'all' ? "Showing all worlds" : `Filtered: ${sector}`);
+        }
+        window.filterWorld = filterWorld;
+
+        function searchNodes() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            thoughts.forEach(t => {
+                const el = document.getElementById(t.id);
+                if (el) {
+                    if (t.title.toLowerCase().includes(query) || t.sector.toLowerCase().includes(query)) {
+                        el.style.display = 'block';
+                        el.style.opacity = '1';
+                    } else {
+                        el.style.opacity = '0.2';
+                    }
+                }
+            });
+        }
+        window.searchNodes = searchNodes;
+
+        function handleInputKeyPress(event) {
+            if (event.key === 'Enter') {
+                submitNewThought();
+            }
+        }
+        window.handleInputKeyPress = handleInputKeyPress;
+
+        function submitNewThought() {
+            const titleInput = document.getElementById('thoughtTitleInput');
+            const title = titleInput.value.trim();
+            if (!title) {
+                showToast("Please enter a thought title!");
+                return;
+            }
+            const sector = document.getElementById('worldSectorSelect').value;
+            const shape = document.getElementById('bubbleShapeSelect').value;
+            createThought(title, sector, selectedAura, null, null, null, shape);
+            titleInput.value = '';
+        }
+        window.submitNewThought = submitNewThought;
+
+        function selectAura(aura) {
+            selectedAura = aura;
+            document.querySelectorAll('.aura-btn').forEach(btn => {
+                if (btn.getAttribute('data-aura') === aura) {
+                    btn.classList.add('ring-4', 'ring-white');
+                } else {
+                    btn.classList.remove('ring-4', 'ring-white');
+                }
+            });
+        }
+        window.selectAura = selectAura;
+
+        function deleteThought(id, event) {
+            if (event) event.stopPropagation();
+            if (typeof window.deleteThoughtFromCloud === 'function') {
+                window.deleteThoughtFromCloud(id);
+            }
+            thoughts = thoughts.filter(t => t.id !== id);
+            connections = connections.filter(c => c.sourceId !== id && c.targetId !== id);
+            renderNodesHTML();
+            showToast("Thought dissolved");
+        }
+        window.deleteThought = deleteThought;
+
+        function spawnSubIdea(parentId, event) {
+            if (event) event.stopPropagation();
+            const parent = thoughts.find(t => t.id === parentId);
+            if (!parent) return;
+
+            const titles = ["Follow-up insight", "Next step action", "Deep dive research", "Sub-concept idea"];
+            const subTitle = titles[Math.floor(Math.random() * titles.length)];
+            const offsetX = (Math.random() - 0.5) * 200 + 160;
+            const offsetY = (Math.random() - 0.5) * 200 + 120;
+
+            createThought(subTitle, parent.sector, parent.aura, parent.x + offsetX, parent.y + offsetY, parent.id, parent.shape);
+        }
+        window.spawnSubIdea = spawnSubIdea;
+
+        function addNewCategory() {
+            const input = document.getElementById('newCategoryInput');
+            const catName = input.value.trim();
+            if (!catName) {
+                showToast("Category name cannot be empty!");
+                return;
+            }
+            if (categories.includes(catName)) {
+                showToast("Category already exists!");
+                return;
+            }
+            categories.push(catName);
+            input.value = '';
+            populateCategorySelectors();
+            showToast(`Category "${catName}" added!`);
+        }
+        window.addNewCategory = addNewCategory;
+
+        function removeCategory(index) {
+            if (categories.length <= 1) {
+                showToast("You must have at least one category.");
+                return;
+            }
+            const removed = categories.splice(index, 1)[0];
+            populateCategorySelectors();
+            showToast(`Category "${removed}" removed.`);
+        }
+        window.removeCategory = removeCategory;
+
+        function clearCloudPensieve() {
+            if (typeof window.clearCloudDatabase === 'function') {
+                window.clearCloudDatabase();
+            } else {
+                thoughts = [];
+                connections = [];
+                renderNodesHTML();
+            }
+            closeSettingsModal();
+            showToast("Cloud Pensieve cleared");
+        }
+        window.clearCloudPensieve = clearCloudPensieve;
+
+        function exportMindMap() {
+            const exportData = { appName: "Pensieve Cloud Mind Map", exportedAt: new Date().toISOString(), thoughts, connections, categories };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `pensieve_map_${Date.now()}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast("Exported Mind Map JSON file!");
+        }
+        window.exportMindMap = exportMindMap;
+
+        function showToast(message) {
+            const toast = document.getElementById('toastNotification');
+            const toastText = document.getElementById('toastText');
+            toastText.textContent = message;
+            toast.classList.remove('opacity-0', '-translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', '-translate-y-2');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
